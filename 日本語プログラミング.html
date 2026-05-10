@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>飛羽３</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --panel: #0f0f1a;
+    --border: #1e1e3a;
+    --accent: #00ffe1;
+    --accent2: #ff4ecd;
+    --accent3: #ffe44e;
+    --text: #c8d0e0;
+    --text-dim: #4a5068;
+    --text-bright: #eef2ff;
+    --line-num: #2a2a4a;
+    --success: #00e676;
+    --error: #ff3d71;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── ヘッダー ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 48px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+  }
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.5;
+  }
+
+  .logo {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; } 50% { opacity:0.3; }
+  }
+
+  .header-tabs {
+    display: flex;
+    gap: 2px;
+    height: 100%;
+    align-items: flex-end;
+  }
+  .tab {
+    padding: 6px 18px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    border: 1px solid transparent;
+    border-bottom: none;
+    cursor: pointer;
+    border-radius: 4px 4px 0 0;
+    transition: all 0.2s;
+    background: transparent;
+    user-select: none;
+  }
+  .tab.active {
+    color: var(--accent);
+    border-color: var(--border);
+    background: var(--bg);
+  }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mode-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    border: 1px solid;
+  }
+  .mode-badge.html { color: var(--accent3); border-color: var(--accent3); }
+  .mode-badge.python { color: var(--accent2); border-color: var(--accent2); }
+  .mode-badge.none { color: var(--text-dim); border-color: var(--text-dim); }
+
+  /* ── メインレイアウト ── */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr auto;
+    flex: 1;
+    overflow: hidden;
+    gap: 1px;
+    background: var(--border);
+  }
+
+  /* ── エディタパネル ── */
+  .editor-panel {
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title::before {
+    content: '';
+    width: 3px; height: 12px;
+    background: var(--accent);
+    border-radius: 2px;
+    display: inline-block;
+  }
+
+  .editor-wrap {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .line-numbers {
+    width: 44px;
+    padding: 14px 0;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--line-num);
+    text-align: right;
+    padding-right: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+    user-select: none;
+  }
+
+  /* ハイライトレイヤーとtextareaを重ねるコンテナ */
+  .editor-inner {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ハイライト表示用div（背後） */
+  #highlight-layer {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    padding: 14px 16px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow: hidden;
+    pointer-events: none;
+    color: transparent; /* ベーステキストは透明 */
+    tab-size: 2;
+    border: none;
+    margin: 0;
+    box-sizing: border-box;
+  }
+
+  /* ハイライト色定義 */
+  #highlight-layer .hl-mode   { color: #ff6b6b; }   /* ｈ / ｐｙ → 赤 */
+  #highlight-layer .hl-cmd    { color: #69db7c; }   /* 命令語 → 緑 */
+  #highlight-layer .hl-opt    { color: #74c0fc; }   /* オプションキー → 青 */
+  #highlight-layer .hl-str    { color: #ffe066; }   /* 文字列（括弧内容） → 黄 */
+
+  #input {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    color: transparent;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    padding: 14px 16px;
+    caret-color: var(--accent);
+    tab-size: 2;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow: auto;
+    z-index: 1;
+  }
+  #input::placeholder { color: var(--text-dim); }
+  #input::selection { background: rgba(0,255,225,0.2); }
+
+  /* ── 出力パネル ── */
+  .output-panel {
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .output-tabs {
+    display: flex;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .out-tab {
+    padding: 8px 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    user-select: none;
+    letter-spacing: 0.08em;
+  }
+  .out-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .out-tab:hover:not(.active) { color: var(--text); }
+
+  .output-content {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #preview {
+    padding: 20px;
+    flex: 1;
+    overflow: auto;
+    color: var(--text-bright);
+  }
+  #preview.hidden { display: none; }
+
+  #code-wrap {
+    padding: 14px 16px;
+    min-height: 100%;
+  }
+  #code-wrap.hidden { display: none; }
+
+  #code {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #7ec8a0;
+    white-space: pre;
+  }
+
+  /* ── ステータスバー ── */
+  .status-bar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    height: 38px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .run-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 7px 22px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .run-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .run-btn:hover::after { opacity: 0.1; }
+  .run-btn:active { transform: scale(0.97); }
+  .run-btn svg { width: 14px; height: 14px; }
+
+  .status-info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .status-item { display: flex; align-items: center; gap: 6px; }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 6px var(--success);
+  }
+  .status-dot.error { background: var(--error); box-shadow: 0 0 6px var(--error); }
+  .status-dot.warn { background: var(--accent3); box-shadow: 0 0 6px var(--accent3); }
+
+  #error-msg {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--error);
+    padding: 20px;
+  }
+
+  /* スクロールバー */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* シンタックスハイライト風の色 */
+  .hl-tag { color: var(--accent); }
+  .hl-str { color: var(--accent3); }
+  .hl-key { color: var(--accent2); }
+
+  /* ── ファイルボタン群 ── */
+  .file-btns {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .file-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 5px 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  .file-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .file-btn svg { width: 12px; height: 12px; }
+
+  /* ── ログページ ── */
+  #log-wrap {
+    padding: 16px;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #log-wrap.hidden { display: none; }
+
+  .log-empty {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 40px 0;
+  }
+
+  .log-entry {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--error);
+    border-radius: 4px;
+    padding: 12px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+  }
+  .log-entry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .log-time { color: var(--text-dim); font-size: 11px; }
+  .log-kind {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    background: rgba(255,61,113,0.15);
+    color: var(--error);
+  }
+  .log-kind.warn {
+    background: rgba(255,228,78,0.12);
+    color: var(--accent3);
+  }
+  .log-errors {
+    color: var(--text);
+    line-height: 1.8;
+    white-space: pre-wrap;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    margin-top: 4px;
+    font-size: 11px;
+  }
+  .log-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 0 0;
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+    padding-top: 16px;
+    flex-shrink: 0;
+  }
+  .export-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 6px 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+  }
+  .export-btn:hover { background: rgba(0,255,225,0.08); }
+  .export-btn svg { width: 13px; height: 13px; }
+  .clear-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    color: var(--error);
+    border: 1px solid var(--error);
+    padding: 6px 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+    margin-right: 8px;
+  }
+  .clear-btn:hover { background: rgba(255,61,113,0.08); }
+
+  /* ── プラグイン ── */
+  .mode-badge.plugin { color: #a78bfa; border-color: #a78bfa; }
+  .plugin-btn { color: #a78bfa !important; }
+  .plugin-btn:hover { color: #a78bfa !important; border-color: #a78bfa !important; }
+  .plugin-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    border: 1px solid #a78bfa;
+    color: #a78bfa;
+    background: rgba(167,139,250,0.08);
+    cursor: default;
+  }
+  .log-kind.plugin { background: rgba(167,139,250,0.15); color: #a78bfa; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    飛羽３　<span style="color:var(--text-dim);font-size:12px;">v0.6.0</span>
+  </div>
+  <div class="header-tabs">
+    <div class="tab active">main.wago</div>
+  </div>
+  <div class="header-right">
+    <div id="font-badges" style="display:flex;gap:4px;align-items:center;"></div>
+    <div id="plugin-badges" style="display:flex;gap:4px;align-items:center;"></div>
+    <div class="mode-badge none" id="mode-badge">-- モード未指定 --</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- 左：エディタ -->
+  <div class="editor-panel">
+    <div class="panel-header">
+      <div class="panel-title">エディタ</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim)" id="line-count">0 行</div>
+    </div>
+    <div class="editor-wrap">
+      <div class="line-numbers" id="line-numbers">1</div>
+      <div class="editor-inner">
+        <div id="highlight-layer" aria-hidden="true"></div>
+        <textarea id="input" spellcheck="false"
+          placeholder="＜飛羽３　ｖ０，４＞&#10;言語＝日&#10;言葉＝う８&#10;背景＝黒&#10;＜開始＞&#10;＜種＝ｈ＞&#10;表示（こんにちは、色＝青、大きさ＝３２、位置＝中）&#10;斜体（これは斜体です）&#10;下線（これは下線です）&#10;一覧開始&#10;項目（りんご）&#10;項目（みかん）&#10;一覧終了"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右：出力 -->
+  <div class="output-panel">
+    <div class="output-tabs">
+      <div class="out-tab active" id="tab-preview" onclick="switchTab('preview')">▶ プレビュー</div>
+      <div class="out-tab" id="tab-code" onclick="switchTab('code')">{ } ソースコード</div>
+      <div class="out-tab" id="tab-log" onclick="switchTab('log')">⚠ ログ <span id="log-badge" style="display:none;color:var(--error);margin-left:2px;"></span></div>
+    </div>
+    <div class="output-content">
+      <div id="preview"><span style="color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:13px;">// 変換ッ…！を押すと結果が表示される</span></div>
+      <div id="preview-dl" style="display:none;padding:8px 12px;border-top:1px solid var(--border);flex-shrink:0;">
+        <button onclick="downloadHTML()" style="width:100%;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'Share Tech Mono',monospace;font-size:12px;padding:7px 0;cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;gap:8px;transition:background 0.15s;" onmouseover="this.style.background='rgba(0,255,225,0.07)'" onmouseout="this.style.background='transparent'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21,15v4a2,2,0,0,1-2,2H5a2,2,0,0,1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          HTMLをダウンロード
+        </button>
+      </div>
+      <div id="code-wrap" class="hidden"><pre id="code"></pre></div>
+      <div id="error-msg" class="hidden"></div>
+      <div id="log-wrap" class="hidden">
+        <div class="log-empty" id="log-empty">// エラーログはまだありません</div>
+        <div id="log-entries"></div>
+        <div class="log-footer">
+          <button class="clear-btn" onclick="clearLog()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6M14,11v6"/></svg>
+            ログ消去
+          </button>
+          <button class="export-btn" onclick="exportLog()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21,15v4a2,2,0,0,1-2,2H5a2,2,0,0,1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            ログをtxtに出力
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 下：ステータスバー -->
+  <div class="status-bar">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="run-btn" onclick="convert()">
+        <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+        変換ッ…！
+      </button>
+      <div class="file-btns">
+        <!-- フォント読込 -->
+        <button class="file-btn" style="color:#f9a8d4;" onclick="document.getElementById('font-input').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><text x="4" y="18" font-size="16" stroke="none" fill="currentColor" font-family="serif">A</text></svg>
+          フォント読込
+        </button>
+        <input type="file" id="font-input" accept=".ttf,.woff2,.woff,.otf" multiple style="display:none" onchange="importFont(event)">
+        <!-- プラグイン読込 -->
+        <button class="file-btn plugin-btn" onclick="document.getElementById('plugin-input').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          プラグイン読込
+        </button>
+        <input type="file" id="plugin-input" accept=".wago-plugin,.json" style="display:none" onchange="importPlugin(event)">
+        <!-- wagoインポート -->
+        <button class="file-btn" onclick="document.getElementById('wago-input').click()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21,15v4a2,2,0,0,1-2,2H5a2,2,0,0,1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          .wago 読込
+        </button>
+        <input type="file" id="wago-input" accept=".wago,.txt" style="display:none" onchange="importWago(event)">
+        <!-- wagoエクスポート -->
+        <button class="file-btn" onclick="exportWago()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21,15v4a2,2,0,0,1-2,2H5a2,2,0,0,1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          .wago 保存
+        </button>
+        <!-- HTML出力 -->
+        <button class="file-btn" onclick="exportHTML()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14,2H6A2,2,0,0,0,4,4V20a2,2,0,0,0,2,2H18a2,2,0,0,0,2-2V8Z"/><polyline points="14,2 14,8 20,8"/></svg>
+          .html 出力
+        </button>
+        <!-- Python出力 -->
+        <button class="file-btn" onclick="exportPython()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14,2H6A2,2,0,0,0,4,4V20a2,2,0,0,0,2,2H18a2,2,0,0,0,2-2V8Z"/><polyline points="14,2 14,8 20,8"/></svg>
+          .py 出力
+        </button>
+      </div>
+    </div>
+    <div class="status-info">
+      <div class="status-item">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">待機中</span>
+      </div>
+      <span id="char-count">0 文字</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── タブ切り替え ──
+function switchTab(tab) {
+  ['preview','code','log'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t === tab);
+  });
+  document.getElementById('preview').classList.toggle('hidden', tab !== 'preview');
+  document.getElementById('code-wrap').classList.toggle('hidden', tab !== 'code');
+  document.getElementById('log-wrap').classList.toggle('hidden', tab !== 'log');
+}
+
+// ════════════════════════════════════════════
+//  ログシステム
+// ════════════════════════════════════════════
+const errorLog = []; // { time, kind, errors[] }
+
+function addLog(kind, errors) {
+  // 失敗のみ記録
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const timeStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} `
+                + `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  errorLog.push({ time: timeStr, kind, errors: [...errors] });
+  renderLog();
+}
+
+function renderLog() {
+  const badge   = document.getElementById('log-badge');
+  const empty   = document.getElementById('log-empty');
+  const entries = document.getElementById('log-entries');
+
+  badge.textContent = `(${errorLog.length})`;
+  badge.style.display = errorLog.length > 0 ? 'inline' : 'none';
+  empty.style.display = errorLog.length === 0 ? 'block' : 'none';
+
+  entries.innerHTML = errorLog.slice().reverse().map((entry, ri) => {
+    const i = errorLog.length - 1 - ri;
+  const kindLabel = entry.kind === 'error' ? 'エラー' : entry.kind === 'plugin' ? 'プラグイン' : '警告';
+    const kindClass = entry.kind === 'error' ? '' : entry.kind === 'plugin' ? 'plugin' : 'warn';
+    const errLines  = entry.errors.map(e => `  • ${e}`).join('\n');
+    return `
+      <div class="log-entry">
+        <div class="log-entry-header">
+          <span class="log-time">#${i+1}　${entry.time}</span>
+          <span class="log-kind ${kindClass}">${kindLabel}　${entry.errors.length}件</span>
+        </div>
+        <div class="log-errors">${escHtml(errLines)}</div>
+      </div>`;
+  }).join('');
+}
+
+function clearLog() {
+  if (errorLog.length === 0) return;
+  if (!confirm('ログを全て消去しますか？')) return;
+  errorLog.length = 0;
+  renderLog();
+}
+
+function exportLog() {
+  if (errorLog.length === 0) { alert('ログがありません'); return; }
+  let txt = '飛羽３ エラーログ\n' + '='.repeat(40) + '\n\n';
+  errorLog.forEach((entry, i) => {
+    const kindLabel = entry.kind === 'error' ? 'エラー' : '警告';
+    txt += `[${i+1}] ${entry.time}　${kindLabel} ${entry.errors.length}件\n`;
+    entry.errors.forEach(e => txt += `  • ${e}\n`);
+    txt += '\n';
+  });
+  downloadFile('tobiha3_log.txt', txt, 'text/plain');
+}
+
+// ════════════════════════════════════════════
+//  ファイル入出力
+// ════════════════════════════════════════════
+function downloadFile(filename, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// .wago 読み込み
+function importWago(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    inputEl.value = e.target.result;
+    updateLineNumbers();
+    updateHighlight();
+  };
+  reader.readAsText(file, 'UTF-8');
+  event.target.value = ''; // 同じファイルを再度選べるようリセット
+}
+
+// .wago 保存
+function exportWago() {
+  const content = inputEl.value;
+  if (!content.trim()) { alert('エディタが空です'); return; }
+  downloadFile('program.wago', content, 'text/plain');
+}
+
+// .html 出力（ソースコード欄の内容）
+function exportHTML() {
+  const code = document.getElementById('code').textContent;
+  if (!code.trim()) { alert('先に変換してください'); return; }
+  downloadFile('output.html', code, 'text/html');
+}
+
+// .py 出力（ソースコード欄の内容）
+function exportPython() {
+  const code = document.getElementById('code').textContent;
+  if (!code.trim()) { alert('先に変換してください'); return; }
+  downloadFile('output.py', code, 'text/plain');
+}
+
+// ════════════════════════════════════════════
+//  定数・ユーティリティ
+// ════════════════════════════════════════════
+
+// ⑤ セキュリティ：ユーザー入力を必ずエスケープしてからHTMLに埋め込む
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ════════════════════════════════════════════
+//  プラグインシステム
+//  .wago-plugin ファイルを読み込んで
+//  COMMAND_TABLE と pluginGenerators に動的追加
+// ════════════════════════════════════════════
+const loadedPlugins = []; // { 言語名, 種, 命令数 }
+
+// 登録済みの追加モードのジェネレーター
+// key: モード文字列('ｊｓ'など), value: function(nodes, indent) → コード文字列
+const pluginGenerators = {};
+
+function loadPlugin(jsonText, filename) {
+  let plugin;
+  try {
+    plugin = JSON.parse(jsonText);
+  } catch(e) {
+    alert('プラグイン読み込みエラー：JSONのパースに失敗しました\n' + filename + '\n' + e.message);
+    return;
+  }
+
+  if (!plugin['種'] || !plugin['命令']) {
+    alert('プラグイン読み込みエラー：「種」または「命令」が見つかりません\n' + filename);
+    return;
+  }
+
+  const modeStr  = plugin['種'];
+  const langName = plugin['言語名'] || modeStr;
+  const commands = plugin['命令'];
+
+  // 新命令を COMMAND_TABLE に追加（既存命令は上書きしない）
+  for (const [cmdName, template] of Object.entries(commands)) {
+    if (!(cmdName in COMMAND_TABLE)) {
+      COMMAND_TABLE[cmdName] = {
+        _pluginTemplate: template,
+        handler(node, indent) {
+          return indent + applyTemplate(template, node.args);
+        },
+      };
+    }
+    // 既存命令にもプラグイン用テンプレートを付加
+    COMMAND_TABLE[cmdName]['_plugin_' + modeStr] = template;
+  }
+
+  // プラグイン専用ジェネレーター登録
+  pluginGenerators[modeStr] = function(nodes, indent) {
+    return generatePlugin(nodes, indent, commands);
+  };
+
+  // 読み込み済みリストに追加（同じ種は上書き）
+  const existing = loadedPlugins.findIndex(p => p['種'] === modeStr);
+  const entry = { 言語名: langName, 種: modeStr, 命令数: Object.keys(commands).length };
+  if (existing >= 0) loadedPlugins[existing] = entry;
+  else loadedPlugins.push(entry);
+
+  renderPluginBadges();
+
+  // CMD_NAMES を更新（ハイライト用）
+  CMD_NAMES.length = 0;
+  Object.keys(COMMAND_TABLE).forEach(k => CMD_NAMES.push(k));
+
+  addLog('plugin', ['プラグイン読み込み成功：' + langName + '（＜種＝' + modeStr + '＞）　命令 ' + Object.keys(commands).length + ' 件']);
+  alert('✓ プラグイン「' + langName + '」を読み込みました\n＜種＝' + modeStr + '＞ が使えるようになりました');
+}
+
+// テンプレート文字列を引数で展開
+// {内容}→args[0], {名前}→args[0], {値}→args[1], {引数N}→args[N]
+function applyTemplate(template, args) {
+  let result = template;
+  result = result.replace(/\{内容\}/g, args[0] || '');
+  result = result.replace(/\{名前\}/g, args[0] || '');
+  result = result.replace(/\{値\}/g,   args[1] || '');
+  result = result.replace(/\{引数(\d+)\}/g, (_, i) => args[parseInt(i)] || '');
+  return result;
+}
+
+// プラグインモード用ジェネレーター
+function generatePlugin(nodes, indent, commands) {
+  let out = '';
+  for (const node of nodes) {
+    if (node.type === 'BOX') {
+      out += generatePlugin(node.children, indent, commands);
+    } else if (node.type === 'CMD') {
+      const template = commands[node.name];
+      if (template) {
+        out += indent + applyTemplate(template, node.args) + '\n';
+      }
+    }
+  }
+  return out;
+}
+
+// プラグインバッジをヘッダーに表示
+function renderPluginBadges() {
+  const container = document.getElementById('plugin-badges');
+  if (!container) return;
+  container.innerHTML = loadedPlugins.map(p =>
+    '<span class="plugin-badge" title="' + p['言語名'] + '（命令' + p['命令数'] + '件）">＋' + p['種'] + '</span>'
+  ).join('');
+}
+
+// .wago-plugin ファイル読み込みイベント
+function importPlugin(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => loadPlugin(e.target.result, file.name);
+  reader.readAsText(file, 'UTF-8');
+  event.target.value = '';
+}
+
+// ════════════════════════════════════════════
+//  フォントインポートシステム
+//  .ttf / .woff2 を読み込んで @font-face を注入
+//  フォント名（拡張子抜きのファイル名）で使用可能にする
+// ════════════════════════════════════════════
+const importedFonts = {}; // { フォント名: dataURL }
+
+function importFont(event) {
+  const files = Array.from(event.target.files);
+  files.forEach(file => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const format = ext === 'ttf' ? 'truetype' : 'woff2';
+    const fontName = file.name.replace(/\.[^.]+$/, ''); // 拡張子除いたファイル名
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      const dataUrl = e.target.result;
+      importedFonts[fontName] = { dataUrl, format };
+
+      // <style> に @font-face を注入
+      const styleEl = document.createElement('style');
+      styleEl.textContent = `@font-face { font-family: '${fontName}'; src: url('${dataUrl}') format('${format}'); }`;
+      document.head.appendChild(styleEl);
+
+      renderFontBadges();
+      addLog('plugin', ['フォント読み込み成功：' + fontName + '（.' + ext + '）']);
+      alert('✓ フォント「' + fontName + '」を読み込みました\nフォント（' + fontName + '） で使えます');
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value = '';
+}
+
+function renderFontBadges() {
+  const container = document.getElementById('font-badges');
+  if (!container) return;
+  container.innerHTML = Object.keys(importedFonts).map(name =>
+    '<span class="plugin-badge" style="border-color:#f9a8d4;color:#f9a8d4;background:rgba(249,168,212,0.08);" title="フォント（' + name + '）で使用可">Ａ ' + name + '</span>'
+  ).join('');
+}
+
+// ════════════════════════════════════════════
+//  HTMLダウンロード（プレビュー下部ボタン用）
+// ════════════════════════════════════════════
+let _lastFullHTML = ''; // 最後に生成した fullHTML を保持
+
+function downloadHTML() {
+  if (!_lastFullHTML) { alert('先に変換ッ…！を実行してください'); return; }
+  const blob = new Blob([_lastFullHTML], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (document.getElementById('page-title-val') || '生成ページ') + '.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// 全角数字→半角
+function toHalf(str) {
+  return str.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+}
+
+// カラー名マップ
+const colorMap = {
+  '赤':'red','青':'blue','緑':'green','黄':'yellow',
+  '白':'white','黒':'black','紫':'purple','橙':'orange',
+  'オレンジ':'orange','ピンク':'pink','灰':'gray','水':'cyan',
+  'シアン':'cyan','マゼンタ':'magenta','金':'gold','銀':'silver',
+};
+function resolveColor(c) { return colorMap[c] || c; }
+
+// ════════════════════════════════════════════
+//  ② コマンドテーブル
+//  各命令の定義をここに集約。
+//  新しい命令を追加するときはここにだけ書けばいい。
+//  handler(node, indent) → HTML文字列を返す
+// ════════════════════════════════════════════
+const COMMAND_TABLE = {
+  // ── テキスト系 ──
+  '表示': {
+    tag: 'p',
+    defaultSize: '16px',
+    handler(node, indent) {
+      const { color, size, align, content } = resolveTextOpts(node.args, '16px');
+      return `${indent}<p style="color:${color};font-size:${size};text-align:${align};">${escHtml(content)}</p>`;
+    },
+    pyHandler(node) {
+      return `print("${node.args[0]}")`;
+    },
+  },
+  '大見出し': {
+    handler(node, indent) {
+      const { color, size, align, content } = resolveTextOpts(node.args, '2em');
+      return `${indent}<h1 style="color:${color};font-size:${size};text-align:${align};">${escHtml(content)}</h1>`;
+    },
+  },
+  '中見出し': {
+    handler(node, indent) {
+      const { color, size, align, content } = resolveTextOpts(node.args, '1.5em');
+      return `${indent}<h2 style="color:${color};font-size:${size};text-align:${align};">${escHtml(content)}</h2>`;
+    },
+  },
+  '小見出し': {
+    handler(node, indent) {
+      const { color, size, align, content } = resolveTextOpts(node.args, '1.2em');
+      return `${indent}<h3 style="color:${color};font-size:${size};text-align:${align};">${escHtml(content)}</h3>`;
+    },
+  },
+  '太字': {
+    handler(node, indent) {
+      const { color, size, align, content } = resolveTextOpts(node.args, '16px');
+      return `${indent}<b style="display:block;color:${color};font-size:${size};text-align:${align};">${escHtml(content)}</b>`;
+    },
+  },
+  // ── 構造系 ──
+  '改行': {
+    handler(_node, indent) { return `${indent}<br>`; },
+  },
+  '区切り': {
+    handler(_node, indent) { return `${indent}<hr>`; },
+  },
+  // ── メディア系 ──
+  'リンク': {
+    handler(node, indent) {
+      const url  = escHtml(node.args[0] || '');
+      const label = escHtml(node.args[1] || url);
+      return `${indent}<a href="${url}">${label}</a>`;
+    },
+  },
+  '画像': {
+    handler(node, indent) {
+      const url = escHtml(node.args[0] || '');
+      return `${indent}<img src="${url}" style="max-width:100%;">`;
+    },
+  },
+  // ── インライン装飾系 ──
+  '斜体': {
+    handler(node, indent) {
+      const { color, size, align, content } = resolveTextOpts(node.args, '16px');
+      return `${indent}<i style="color:${color};font-size:${size};text-align:${align};display:block;">${escHtml(content)}</i>`;
+    },
+  },
+  '下線': {
+    handler(node, indent) {
+      const { color, size, align, content } = resolveTextOpts(node.args, '16px');
+      return `${indent}<u style="color:${color};font-size:${size};text-align:${align};display:block;">${escHtml(content)}</u>`;
+    },
+  },
+  '消し線': {
+    handler(node, indent) {
+      const { color, size, align, content } = resolveTextOpts(node.args, '16px');
+      return `${indent}<s style="color:${color};font-size:${size};text-align:${align};display:block;">${escHtml(content)}</s>`;
+    },
+  },
+  // ── リスト系 ──
+  '一覧開始': {
+    handler(_node, indent) { return `${indent}<ul>`; },
+  },
+  '一覧終了': {
+    handler(_node, indent) { return `${indent}</ul>`; },
+  },
+  '番号一覧開始': {
+    handler(_node, indent) { return `${indent}<ol>`; },
+  },
+  '番号一覧終了': {
+    handler(_node, indent) { return `${indent}</ol>`; },
+  },
+  '項目': {
+    handler(node, indent) {
+      const { color, size, content } = resolveTextOpts(node.args, '16px');
+      return `${indent}<li style="color:${color};font-size:${size};">${escHtml(content)}</li>`;
+    },
+  },
+  // ── 表系 ──
+  '表開始': {
+    handler(_node, indent) { return `${indent}<table style="border-collapse:collapse;">`; },
+  },
+  '表終了': {
+    handler(_node, indent) { return `${indent}</table>`; },
+  },
+  '行開始': {
+    handler(_node, indent) { return `${indent}<tr>`; },
+  },
+  '行終了': {
+    handler(_node, indent) { return `${indent}</tr>`; },
+  },
+  '枠': {
+    handler(node, indent) {
+      const { color, size, content } = resolveTextOpts(node.args, '14px');
+      return `${indent}<td style="border:1px solid #ccc;padding:6px 10px;color:${color};font-size:${size};">${escHtml(content)}</td>`;
+    },
+  },
+  '見出し枠': {
+    handler(node, indent) {
+      const { color, size, content } = resolveTextOpts(node.args, '14px');
+      return `${indent}<th style="border:1px solid #ccc;padding:6px 10px;background:#f0f0f0;color:${color};font-size:${size};">${escHtml(content)}</th>`;
+    },
+  },
+  // ── UI系 ──
+  'ボタン': {
+    handler(node, indent) {
+      const { color, size, content } = resolveTextOpts(node.args, '14px');
+      return `${indent}<button style="color:${color};font-size:${size};padding:6px 16px;cursor:pointer;">${escHtml(content)}</button>`;
+    },
+  },
+  '余白': {
+    handler(node, indent) {
+      // 引数なし → 1行余白(1em), 引数あり → px指定
+      const amount = node.args[0] ? toHalf(node.args[0]) + 'px' : '1em';
+      return `${indent}<div style="height:${amount};"></div>`;
+    },
+  },
+  'フォント': {
+    handler(node, indent) {
+      // フォント（フォント名）→ そのブロック以降の font-family を変える div
+      // ※ フォントは importedFonts に登録済みのものを参照
+      const name = node.args[0] || '';
+      const safeFont = escHtml(name);
+      return `${indent}<div style="font-family:'${safeFont}',sans-serif;">`;
+    },
+  },
+  'フォント終了': {
+    handler(_node, indent) {
+      return `${indent}</div>`;
+    },
+  },
+  // ── Python系 ──
+  '変数': {
+    pyHandler(node) {
+      return `${node.args[0]} = ${node.args[1]}`;
+    },
+  },
+};
+
+// テキスト系オプション解析（色・大きさ・位置）
+function resolveTextOpts(args, defaultSize) {
+  const content = args[0] || '';
+  let color = 'black', size = defaultSize, align = 'left';
+  for (let i = 1; i < args.length; i++) {
+    const p = args[i];
+    if (p.startsWith('色＝'))    color = resolveColor(p.slice(2));
+    else if (p.startsWith('大きさ＝')) size = toHalf(p.slice(4)) + 'px';
+    else if (p.startsWith('位置＝')) {
+      const v = p.slice(3);
+      align = v === '中' ? 'center' : v === '右' ? 'right' : 'left';
+    }
+  }
+  return { content, color, size, align };
+}
+
+// ════════════════════════════════════════════
+//  トークナイザー（字句解析）
+//  1行のテキスト → トークン1個
+// ════════════════════════════════════════════
+function tokenize(line) {
+  // 宣言
+  if (/^＜飛羽３/.test(line)) return { type: 'DECLARE', raw: line };
+  // ＜開始＞
+  if (line === '＜開始＞') return { type: 'START' };
+  // ＜種＝ｈ＞ / ＜種＝ｐｙ＞ / プラグインモード
+  if (line === '＜種＝ｈ＞')  return { type: 'MODE', mode: 'html' };
+  if (line === '＜種＝ｐｙ＞') return { type: 'MODE', mode: 'python' };
+  const mMode = line.match(/^＜種＝(.+?)＞$/);
+  if (mMode && pluginGenerators[mMode[1]]) return { type: 'MODE', mode: mMode[1] };
+  // ③ 箱開き：＜箱＞ or ＜箱　背景＝赤＞
+  const mBoxOpen = line.match(/^＜箱(.*?)＞$/);
+  if (mBoxOpen) {
+    const opts = parseInlineOpts(mBoxOpen[1].trim());
+    return { type: 'BOX_OPEN', opts };
+  }
+  // ③ 箱閉じ：＜／箱＞
+  if (line === '＜／箱＞') return { type: 'BOX_CLOSE' };
+  // ヘッダー設定
+  if (line.startsWith('言語＝')) return { type: 'CONFIG', key: 'lang',    val: line.slice(3) };
+  if (line.startsWith('言葉＝')) return { type: 'CONFIG', key: 'charset', val: line.slice(3) };
+  if (line.startsWith('背景＝')) return { type: 'CONFIG', key: 'bg',      val: line.slice(3) };
+  if (line.startsWith('名前＝')) return { type: 'CONFIG', key: 'title',   val: line.slice(3) };
+  // 命令：表示（A、色＝青）
+  const mCmd = line.match(/^(.+?)（(.*)）$/);
+  if (mCmd) {
+    const name = mCmd[1];
+    const args = mCmd[2] ? mCmd[2].split('、') : [];
+    return { type: 'CMD', name, args };
+  }
+  // 引数なし命令（改行、区切り）
+  if (line in COMMAND_TABLE) return { type: 'CMD', name: line, args: [] };
+  // 不明
+  return { type: 'UNKNOWN', raw: line };
+}
+
+// ＜箱　背景＝赤　パディング＝２０＞ のようなインラインオプションをパース
+function parseInlineOpts(str) {
+  const opts = {};
+  if (!str) return opts;
+  const parts = str.split(/\s+/);
+  for (const p of parts) {
+    if (p.startsWith('背景＝'))      opts.bg      = resolveColor(p.slice(3));
+    else if (p.startsWith('色＝'))   opts.color   = resolveColor(p.slice(2));
+    else if (p.startsWith('幅＝'))   opts.width   = toHalf(p.slice(2)) + 'px';
+    else if (p.startsWith('余白＝')) opts.padding = toHalf(p.slice(3)) + 'px';
+    else if (p.startsWith('丸＝'))   opts.radius  = toHalf(p.slice(2)) + 'px';
+  }
+  return opts;
+}
+
+// ════════════════════════════════════════════
+//  ③ パーサー（構文解析）
+//  トークン列 → ノードツリー
+//  箱の入れ子を再帰的に処理する
+// ════════════════════════════════════════════
+function parse(tokens) {
+  // ルートノード
+  const root = { type: 'ROOT', children: [] };
+  let cursor = root;
+  const stack = [root]; // 入れ子スタック
+
+  for (const tok of tokens) {
+    if (tok.type === 'BOX_OPEN') {
+      // 新しい箱ノードを作り、現在のノードの子にしてからスタックに積む
+      const boxNode = { type: 'BOX', opts: tok.opts, children: [] };
+      cursor.children.push(boxNode);
+      stack.push(boxNode);
+      cursor = boxNode;
+    } else if (tok.type === 'BOX_CLOSE') {
+      // 箱を閉じる：スタックから1個ポップ
+      if (stack.length > 1) {
+        stack.pop();
+        cursor = stack[stack.length - 1];
+      }
+      // スタックが1（ルート）なのに閉じタグが来た場合は無視
+    } else {
+      cursor.children.push(tok);
+    }
+  }
+  return root;
+}
+
+// ════════════════════════════════════════════
+//  コードジェネレーター
+//  ノードツリー → HTML / Python 文字列
+// ════════════════════════════════════════════
+function generateHTML(nodes, indent) {
+  let out = '';
+  for (const node of nodes) {
+    if (node.type === 'BOX') {
+      // ③ 箱：divに変換、オプションをstyleに
+      const o = node.opts || {};
+      const styles = [];
+      if (o.bg)      styles.push(`background:${o.bg}`);
+      if (o.color)   styles.push(`color:${o.color}`);
+      if (o.width)   styles.push(`width:${o.width}`);
+      if (o.padding) styles.push(`padding:${o.padding}`);
+      if (o.radius)  styles.push(`border-radius:${o.radius}`);
+      const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
+      out += `${indent}<div${styleAttr}>\n`;
+      out += generateHTML(node.children, indent + '  ');
+      out += `${indent}</div>\n`;
+    } else if (node.type === 'CMD') {
+      const def = COMMAND_TABLE[node.name];
+      if (def && def.handler) {
+        out += def.handler(node, indent) + '\n';
+      }
+    }
+    // DECLARE / START / MODE / CONFIG はジェネレーターでは無視（パース前に処理済み）
+  }
+  return out;
+}
+
+function generatePython(nodes, indent) {
+  let out = '';
+  for (const node of nodes) {
+    if (node.type === 'BOX') {
+      // Pythonにboxの概念はないので中身だけ再帰
+      out += generatePython(node.children, indent);
+    } else if (node.type === 'CMD') {
+      const def = COMMAND_TABLE[node.name];
+      if (def && def.pyHandler) {
+        out += indent + def.pyHandler(node) + '\n';
+      }
+    }
+  }
+  return out;
+}
+
+// ════════════════════════════════════════════
+//  行番号・ハイライト
+// ════════════════════════════════════════════
+const inputEl    = document.getElementById('input');
+const lineNumEl  = document.getElementById('line-numbers');
+const lineCountEl= document.getElementById('line-count');
+const charCountEl= document.getElementById('char-count');
+const hlLayer    = document.getElementById('highlight-layer');
+
+const CMD_NAMES = Object.keys(COMMAND_TABLE);
+const CONFIGS_HL= ['言語＝', '言葉＝', '背景＝', '名前＝'];
+const OPTIONS_HL= ['色＝', '大きさ＝', '位置＝', '背景＝', '幅＝', '余白＝', '丸＝'];
+
+function updateLineNumbers() {
+  const count = inputEl.value.split('\n').length;
+  lineNumEl.innerHTML = Array.from({length: count}, (_, i) => i + 1).join('<br>');
+  lineCountEl.textContent = count + ' 行';
+  charCountEl.textContent = inputEl.value.length + ' 文字';
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function highlightLine(line) {
+  const e = esc(line);
+
+  // 宣言・＜開始＞
+  if (/^＜飛羽３/.test(e) || e.trim() === '＜開始＞')
+    return `<span style="color:var(--accent)">${e}</span>`;
+
+  // 種
+  const mMode = e.match(/^(＜種＝)(ｈ|ｐｙ)(＞)$/);
+  if (mMode)
+    return `<span style="color:var(--text-bright)">${mMode[1]}</span><span class="hl-mode">${mMode[2]}</span><span style="color:var(--text-bright)">${mMode[3]}</span>`;
+
+  // ③ 箱タグ
+  if (/^＜箱/.test(e) || e === '＜／箱＞')
+    return `<span style="color:var(--accent2)">${e}</span>`;
+
+  // ヘッダー設定
+  for (const cfg of CONFIGS_HL) {
+    if (e.startsWith(esc(cfg))) {
+      const key = esc(cfg).slice(0, -1);
+      const val = e.slice(esc(cfg).length);
+      return `<span class="hl-opt">${key}</span><span style="color:var(--text-bright)">＝</span><span class="hl-str">${val}</span>`;
+    }
+  }
+
+  // 命令語（）
+  const cmdPat = new RegExp(`^(${CMD_NAMES.map(esc).join('|')})(（)(.+)(）)$`);
+  const mCmd = e.match(cmdPat);
+  if (mCmd) {
+    const parts = mCmd[3].split('、');
+    const colored = parts.map((p, i) => {
+      if (i === 0) return `<span class="hl-str">${p}</span>`;
+      for (const opt of OPTIONS_HL) {
+        const oe = esc(opt);
+        if (p.startsWith(oe)) {
+          return `<span class="hl-opt">${oe.slice(0,-1)}</span><span style="color:var(--text-bright)">＝</span><span class="hl-str">${p.slice(oe.length)}</span>`;
+        }
+      }
+      return `<span class="hl-str">${p}</span>`;
+    });
+    return `<span class="hl-cmd">${mCmd[1]}</span><span style="color:var(--text-bright)">${mCmd[2]}</span>${colored.join('<span style="color:var(--text-bright)">、</span>')}<span style="color:var(--text-bright)">${mCmd[4]}</span>`;
+  }
+
+  // 単独命令（引数なし：改行、区切り、一覧開始 など）
+  if (CMD_NAMES.map(esc).includes(e.trim()))
+    return `<span class="hl-cmd">${e}</span>`;
+
+  return `<span style="color:var(--text-bright)">${e}</span>`;
+}
+
+function updateHighlight() {
+  hlLayer.innerHTML = inputEl.value.split('\n').map(highlightLine).join('\n');
+  hlLayer.scrollTop = inputEl.scrollTop;
+}
+
+inputEl.addEventListener('input',  () => { updateLineNumbers(); updateHighlight(); });
+inputEl.addEventListener('scroll', () => {
+  lineNumEl.scrollTop = inputEl.scrollTop;
+  hlLayer.scrollTop   = inputEl.scrollTop;
+});
+updateLineNumbers();
+updateHighlight();
+
+// ════════════════════════════════════════════
+//  メイン変換処理
+// ════════════════════════════════════════════
+function showError(msg, logEntries) {
+  const statusDot  = document.getElementById('status-dot');
+  const statusText = document.getElementById('status-text');
+  const modeBadge  = document.getElementById('mode-badge');
+  statusDot.className  = 'status-dot error';
+  statusText.textContent = 'エラー';
+  modeBadge.className  = 'mode-badge none';
+  modeBadge.textContent = '-- エラー --';
+  document.getElementById('preview').innerHTML =
+    `<span style="color:var(--error);font-family:'Share Tech Mono',monospace;">${esc(msg)}</span>`;
+  document.getElementById('code').textContent = '';
+  // ログ記録
+  const entries = logEntries || [msg.replace('// エラー：','')];
+  addLog('error', entries);
+}
+
+function convert() {
+  const rawLines = inputEl.value.split('\n').map(l => l.trim()).filter(l => l !== '');
+  const errorDiv = document.getElementById('error-msg');
+  errorDiv.classList.add('hidden');
+
+  // 1. 宣言文チェック
+  if (rawLines.length === 0 || !/^＜飛羽３/.test(rawLines[0]))
+    return showError('// エラー：1行目に ＜飛羽３　ｖ０，１＞ などの宣言文が必要です',
+      ['宣言文なし：1行目に ＜飛羽３　ｖ０，１＞ などの宣言文が必要です']);
+
+  // 2. 全行をトークン化
+  const tokens = rawLines.map(tokenize);
+
+  // 3. ＜開始＞チェック
+  const startIdx = tokens.findIndex(t => t.type === 'START');
+  if (startIdx === -1)
+    return showError('// エラー：＜開始＞ タグが見つかりません',
+      ['開始タグなし：＜開始＞ タグが見つかりません']);
+
+  // 4. ヘッダー処理（宣言〜＜開始＞の間）
+  let lang = 'ja', charset = 'UTF-8', bgColor = '', mode = '', pageTitle = '生成ページ';
+  const errors = [];
+
+  for (let i = 1; i < startIdx; i++) {
+    const t = tokens[i];
+    if (t.type === 'CONFIG') {
+      if (t.key === 'lang')    lang       = (t.val === '英') ? 'en' : 'ja';
+      if (t.key === 'charset') charset    = (t.val === 'う８') ? 'UTF-8' : toHalf(t.val);
+      if (t.key === 'bg')      bgColor    = resolveColor(t.val);
+      if (t.key === 'title')   pageTitle  = t.val;
+    } else if (t.type === 'MODE') {
+      mode = t.mode;
+    } else if (t.type !== 'DECLARE') {
+      errors.push(`行 ${i+1}: ヘッダーで認識できない記述 → "${rawLines[i]}"`);
+    }
+  }
+
+  // 5. 本文トークンからmodeを拾う（＜開始＞以降の＜種＝ｈ＞ など）
+  const bodyTokens = tokens.slice(startIdx + 1);
+  for (const t of bodyTokens) {
+    if (t.type === 'MODE') { mode = t.mode; }
+  }
+  // 本文トークンからMODEトークンは除外（ジェネレーターに渡さない）
+  const contentTokens = bodyTokens.filter(t => t.type !== 'MODE' && t.type !== 'DECLARE');
+
+  if (!mode) return showError('// エラー：＜種＝ｈ＞ または ＜種＝ｐｙ＞ を指定してください',
+    ['モード未指定：＜種＝ｈ＞ または ＜種＝ｐｙ＞ を指定してください']);
+
+  // 6. 未知トークンをエラーに
+  for (let i = startIdx + 1; i < tokens.length; i++) {
+    if (tokens[i].type === 'UNKNOWN')
+      errors.push(`行 ${i+1}: 認識できない命令 → "${rawLines[i]}"`);
+  }
+
+  // 7. ③ パース（入れ子ツリー構築）
+  const tree = parse(contentTokens);
+
+  // 8. コード生成
+  const statusDot  = document.getElementById('status-dot');
+  const statusText = document.getElementById('status-text');
+  const modeBadge  = document.getElementById('mode-badge');
+  const previewEl  = document.getElementById('preview');
+
+  if (mode === 'html') {
+    modeBadge.className  = 'mode-badge html';
+    modeBadge.textContent = 'HTML モード';
+
+    const bodyContent = generateHTML(tree.children, '');
+    const bgStyle = bgColor ? ` style="background:${bgColor};"` : '';
+
+    // インポート済みフォントを @font-face として埋め込む
+    const fontFaces = Object.entries(importedFonts).map(([name, f]) =>
+      `  @font-face { font-family: '${name}'; src: url('${f.dataUrl}') format('${f.format}'); }`
+    ).join('\n');
+    const fontStyle = fontFaces ? `\n<style>\n${fontFaces}\n</style>` : '';
+
+    const fullHTML =
+`<!DOCTYPE html>
+<html lang="${lang}">
+<head>
+<meta charset="${charset}">
+<title>${escHtml(pageTitle)}</title>${fontStyle}
+</head>
+<body${bgStyle}>
+${bodyContent}</body>
+</html>`;
+
+    _lastFullHTML = fullHTML;
+    // ダウンロードボタンを表示（HTMLモードのみ）
+    document.getElementById('preview-dl').style.display = '';
+
+    previewEl.style.background = bgColor || '';
+    previewEl.innerHTML = bodyContent;
+    document.getElementById('code').textContent = fullHTML;
+
+  } else if (mode === 'python') {
+    modeBadge.className  = 'mode-badge python';
+    modeBadge.textContent = 'Python モード';
+    previewEl.style.background = '';
+    previewEl.innerHTML = `<span style="color:var(--text-dim);font-family:'Share Tech Mono',monospace;">// Python はプレビュー不可</span>`;
+    document.getElementById('code').textContent = generatePython(tree.children, '');
+
+  } else if (pluginGenerators[mode]) {
+    // プラグインモード
+    const pluginInfo = loadedPlugins.find(p => p['種'] === mode);
+    const langName = pluginInfo ? pluginInfo['言語名'] : mode;
+    modeBadge.className  = 'mode-badge plugin';
+    modeBadge.textContent = langName + ' モード';
+    previewEl.style.background = '';
+    previewEl.innerHTML = '<span style="color:var(--text-dim);font-family:\'Share Tech Mono\',monospace;">// ' + langName + ' はプレビュー不可</span>';
+    document.getElementById('code').textContent = pluginGenerators[mode](tree.children, '');
+  }
+
+  if (errors.length > 0) {
+    statusDot.className    = 'status-dot warn';
+    statusText.textContent = `警告 ${errors.length} 件`;
+    errorDiv.textContent   = errors.join('\n');
+    errorDiv.classList.remove('hidden');
+    addLog('warn', errors);
+  } else {
+    statusDot.className    = 'status-dot';
+    statusText.textContent = '変換成功';
+  }
+}
+</script>
+</body>
+</html>
